@@ -5,6 +5,7 @@ ObjectDir = $(Here)/objects
 PDFDir = $(Here)/pdfs
 VegasDir = $(Here)/vegas
 
+
 # compiler options, Comp='ifort' or 'gfort'
 Opt  = Yes
 Comp = gfort
@@ -31,7 +32,7 @@ ifeq ($(Comp),gfort)
  else
     LHAPDFflags = -DuseLHAPDF=0
  endif 
- fcomp = f95 $(OptOpts) -ffree-line-length-none -I$(VegasDir) -I$(ModuleDir) -J$(ModuleDir) $(LHAPDFflags) -Dcompiler=2 
+ fcomp = f95 $(OptOpts) -ffree-line-length-none -I$(VegasDir) -I$(ModuleDir) -J$(ModuleDir)  $(LHAPDFflags) -Dcompiler=2 
 endif
 
 
@@ -114,6 +115,9 @@ PSGenDep = genps.c \
 PSGenObj = $(ObjectDir)/genps.o \
            $(ObjectDir)/boost.o
 
+           
+MELAObj = $(Here)/../JHUGenMELA/mod_TTBH_MatEl.o           
+
 
 # MadGraphDep = h_emepemep.f \
 #               h_emepemep_noint.f \
@@ -140,7 +144,8 @@ else
 endif
 	@echo " executable file is "$(Exec) "compiled with "$(Comp)
 	@echo " "
-	$(fcomp) -o $(Exec) $(MainObj) $(AmpObj) $(PSGenObj) $(VegasObj) $(PDFObj)
+	$(fcomp) -o $(Exec) $(MainObj) $(AmpObj) $(PSGenObj) $(VegasObj) $(PDFObj) 
+# 	$(MELAObj)
 
 
 

@@ -1949,12 +1949,14 @@ END SUBROUTINE Kinematics_VHiggs
 SUBROUTINE Kinematics_TTBH(Mom,applyPSCut,NBin)
 use ModParameters
 use ModMisc
+! use modTTBH
 implicit none
-real(8) :: Mom(1:4,1:11)
+real(8) :: Mom(1:4,1:11),MomMELA(1:4,1:13)
 logical :: applyPSCut
 integer :: NBin(:)
-real(8) :: pT_t,pT_H,pT_tbar
+real(8) :: pT_t,pT_H,pT_tbar,MatElSq_H0,MatElSq_H1,D_0minus
 integer, parameter :: tbar=4,t=5,Hbos=3,inLeft=1,inRight=2,bbar=6, lepM=7,nubar=8,b=9,lepP=10,nu=11
+logical,save :: FirstTime=.true.
 
 
     applyPSCut = .false.
@@ -1965,9 +1967,29 @@ integer, parameter :: tbar=4,t=5,Hbos=3,inLeft=1,inRight=2,bbar=6, lepM=7,nubar=
     
     if( m_Top.lt.10d0*GeV  .and. (pT_t.lt.pTjetcut .or. pT_tbar.lt.pTjetcut) ) applyPSCut=.true.
     
+    
+!     if( FirstTime ) then
+! !       call NNPDFDriver("./pdfs/NNPDF30_lo_as_0130.LHgrid",33)
+! !       call NNinitPDF(0)
+!       call InitProcess_TTBH(m_Reso,m_top)
+!       FirstTime = .false.
+!     endif
+!     MomMELA(1:4,1) = -(/         65d0,           0.0000000000000000d0, 0.0000000000000000d0,      65d0           /)
+!     MomMELA(1:4,2) = -(/         65d0,           0.0000000000000000d0, 0.0000000000000000d0,     -65d0           /)  
+!     MomMELA(1:4,3:11) = Mom(1:4,3:11)
+!     MomMELA(1:4,12:13) = 0d0
+!     
+!     call EvalXSec_PP_TTBH(MomMELA(1:4,1:13),(/(1d0,0d0),(0d0,0d0)/),TopDecays,2,MatElSq_H0)
+!     call EvalXSec_PP_TTBH(MomMELA(1:4,1:13),(/(0d0,0d0),(1d0,0d0)/),TopDecays,2,MatElSq_H1)
+!     
+!     D_0minus = MatElSq_H0/(MatElSq_H0 + 2d0*MatElSq_H1 )
+
+
+    
 !   binning
     NBin(1)  = WhichBin(1,pT_t)
     NBin(2)  = WhichBin(2,pT_H)
+    NBin(3)  = WhichBin(3,D_0minus)
     
     
     
@@ -3276,6 +3298,7 @@ implicit none
 !      logical, parameter :: breit_wigner = .true.
       real(8) :: jacobian4, jacobian5
 
+     
 !3333333333
 !invariant mass of 3
       inv_mass(3) = dsqrt((MomExt(1,3)+MomExt(4,3))*(MomExt(1,3)-MomExt(4,3)))
@@ -3294,6 +3317,7 @@ implicit none
         inv_mass(4) = dsqrt(bw_sq(yRnd(12),mass(4,1), mass(4,2), inv_mass(3)**2, jacobian4))
         inv_mass(5) = dsqrt(bw_sq(yRnd(13),mass(5,1), mass(5,2), (inv_mass(3)-inv_mass(4))**2, jacobian5))
 !      endif
+
 
 !444444444444
 !energy of 4 in the CM frame of 3

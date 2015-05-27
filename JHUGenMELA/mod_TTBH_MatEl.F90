@@ -1,7 +1,7 @@
 MODULE modTTBH
 IMPLICIT NONE
 
-      
+
 public :: EvalXSec_PP_TTBH,EvalAmp_GG_TTBH,EvalAmp_QQB_TTBH,InitProcess_TTBH
 
 private
@@ -78,7 +78,9 @@ real(8) :: m_Reso,m_Ferm
 integer :: NumQuarks,NumGluons,NumBoson
 integer :: NumTrees
 integer :: iTree,NumParticles
+logical, save :: FirstTime=.true.
 include "includeVars.F90"
+
 
   m_Higgs = m_Reso
 
@@ -89,11 +91,13 @@ include "includeVars.F90"
   do iTree=1,NumTrees
       TheTreeAmps_GG_TTBH(iTree)%NumPart=NumParticles
       TheTreeAmps_GG_TTBH(iTree)%NumQua=NumQuarks
-      allocate( TheTreeAmps_GG_TTBH(iTree)%NumGlu(0:NumQuarks+1) )
-      allocate( TheTreeAmps_GG_TTBH(iTree)%PartRef(1:NumParticles) )
-      allocate( TheTreeAmps_GG_TTBH(iTree)%PartType(1:NumParticles) )
-      allocate( TheTreeAmps_GG_TTBH(iTree)%Quarks(1:NumQuarks) )
-      allocate( TheTreeAmps_GG_TTBH(iTree)%Gluons(1:NumGluons) )
+      if( FirstTime ) then
+          allocate( TheTreeAmps_GG_TTBH(iTree)%NumGlu(0:NumQuarks+1) )
+          allocate( TheTreeAmps_GG_TTBH(iTree)%PartRef(1:NumParticles) )
+          allocate( TheTreeAmps_GG_TTBH(iTree)%PartType(1:NumParticles) )
+          allocate( TheTreeAmps_GG_TTBH(iTree)%Quarks(1:NumQuarks) )
+          allocate( TheTreeAmps_GG_TTBH(iTree)%Gluons(1:NumGluons) )
+      endif
       TheTreeAmps_GG_TTBH(iTree)%NumGlu(0) = NumGluons
       TheTreeAmps_GG_TTBH(iTree)%NumSca = 0
   enddo             
@@ -105,14 +109,17 @@ include "includeVars.F90"
   do iTree=1,NumTrees
       TheTreeAmps_QQB_TTBH(iTree)%NumPart=NumParticles
       TheTreeAmps_QQB_TTBH(iTree)%NumQua=NumQuarks
-      allocate( TheTreeAmps_QQB_TTBH(iTree)%NumGlu(0:NumQuarks+1) )
-      allocate( TheTreeAmps_QQB_TTBH(iTree)%PartRef(1:NumParticles) )
-      allocate( TheTreeAmps_QQB_TTBH(iTree)%PartType(1:NumParticles) )
-      allocate( TheTreeAmps_QQB_TTBH(iTree)%Quarks(1:NumQuarks) )
-      allocate( TheTreeAmps_QQB_TTBH(iTree)%Gluons(1:NumGluons) )
+      if( FirstTime ) then 
+          allocate( TheTreeAmps_QQB_TTBH(iTree)%NumGlu(0:NumQuarks+1) )
+          allocate( TheTreeAmps_QQB_TTBH(iTree)%PartRef(1:NumParticles) )
+          allocate( TheTreeAmps_QQB_TTBH(iTree)%PartType(1:NumParticles) )
+          allocate( TheTreeAmps_QQB_TTBH(iTree)%Quarks(1:NumQuarks) )
+          allocate( TheTreeAmps_QQB_TTBH(iTree)%Gluons(1:NumGluons) )
+      endif
       TheTreeAmps_QQB_TTBH(iTree)%NumGlu(0) = NumGluons
       TheTreeAmps_QQB_TTBH(iTree)%NumSca = 0
   enddo             
+  if( FirstTime ) FirstTime=.false.
   
   ExtParticles(1)%PartType = ATop_
   ExtParticles(1)%ExtRef   = 1
@@ -169,7 +176,7 @@ include "includeVars.F90"
   
 RETURN
 END SUBROUTINE
-  
+
 
       
 
@@ -253,7 +260,7 @@ real(8),parameter :: c_aa=64.D0/3.D0, c_ab=-8.D0/3.D0
 include 'includeVars.F90'
 SqAmp = 0d0
 
-     m_ferm = ExtParticles(1)%Mass    
+     m_ferm = ExtParticles(1)%Mass
 
      couplHTT_right_dyn = m_ferm/vev/2d0 * ( TTBHcoupl(1) + (0d0,1d0)*TTBHcoupl(2) )
      couplHTT_left_dyn  = m_ferm/vev/2d0 * ( TTBHcoupl(1) - (0d0,1d0)*TTBHcoupl(2) )

@@ -299,11 +299,11 @@ integer :: i, j
 
    call NNPDFDriver("./pdfs/NNPDF30_lo_as_0130.LHgrid",33)
    call NNinitPDF(0)
-!    call InitProcess_TTBH(m_Reso)! done above already
+   call InitProcess_TTBH(m_Reso,m_top)! done above already
 
    TopDecays = 1
    call EvalXSec_PP_TTBH(p13(1:4,1:13),TTBHcoupl,TopDecays,2,MatElSq)
-   print *, 'Matr.el. squared,gg->ttbH',MatElSq ,MatElSq/( 1849.90671287913d0 + 2842.07693611093d0 ) * 1.14594184663D0
+   print *, 'Matr.el. squared,PP->ttbH',MatElSq ,MatElSq/( 1849.90671287913d0 + 2842.07693611093d0 ) * 1.14594184663D0
    
    
   
