@@ -11,7 +11,9 @@
 
 
 !----- notation for subroutines
-      public :: EvalAmp_gg_H_VV,EvalAmp_H_VV
+      public :: EvalAmp_gg_H_VV
+      public :: EvalAmp_H_VV
+      public :: EvalAmp_H_TT
 
       CONTAINS
 
@@ -705,12 +707,12 @@
     endif  
   endif
 
-  res = e1_e2*e3_e4*M_Reso**4*yyy1*xxx1                  &
-      + e1_e2*e3_q4*e4_q3*M_Reso**2*yyy2*xxx1            &
-      + et1(e1,e2,q1,q2)*e3_e4*M_Reso**2*yyy1*xxx3       &
+  res = e1_e2*e3_e4*MG**4*yyy1*xxx1                  &
+      + e1_e2*e3_q4*e4_q3*MG**2*yyy2*xxx1            &
+      + et1(e1,e2,q1,q2)*e3_e4*MG**2*yyy1*xxx3       &
       + et1(e1,e2,q1,q2)*e3_q4*e4_q3*yyy2*xxx3           &
       + et1(e1,e2,q1,q2)*et1(e3,e4,q3,q4)*yyy3*xxx3      &
-      + et1(e3,e4,q3,q4)*e1_e2*M_Reso**2*yyy3*xxx1
+      + et1(e3,e4,q3,q4)*e1_e2*MG**2*yyy3*xxx1
 
 
 
@@ -1356,7 +1358,7 @@
           endif
       endif
 
-      res = e3_e4*M_Reso**2*yyy1                  &
+      res = e3_e4*MG**2*yyy1                  &
           + e3_q4*e4_q3*yyy2                      &
           + et1(e3,e4,q3,q4)*yyy3
     
@@ -1365,6 +1367,30 @@
 
 
 
+   
+   
+   
+   
+   
+
+      ! Higgs decay to tau^+ tau^-   or    top anti-top 
+      SUBROUTINE EvalAmp_H_TT(p,res)
+      use ModMisc
+      implicit none
+      real(dp), intent(out) ::  res
+      real(dp), intent(in) :: p(1:4,1:6)
+      res = 0d0
+
+
+      RETURN
+      END SUBROUTINE
+
+
+   
+   
+   
+   
+   
 
 
 

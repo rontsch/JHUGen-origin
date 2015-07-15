@@ -290,356 +290,6 @@ ENDIF! GENEVT
 
 
 
-! ./JHUGen Process=60 PChannel=2 Unweighted=0 DataFile="VBF_uw_all" VegasNc1=200000 VegasNc2=1000000
-! all 3610(10)
-! uu 537(1)
-! dd 343(1)  
-! 0.64
-
-! ./JHUGen Process=60 PChannel=0 Unweighted=1 DataFile="VBF_we_all" VegasNc0=400000 VegasNc2=1000
-! 
-! weighted= 0.66 
-! 
-
-
-
- FUNCTION EvalWeighted_HJJ(yRnd,VgsWgt)
- use ModKinematics
- use ModParameters
- use ModHiggsjj
-#if compiler==1
- use ifport
-#endif
-   implicit none
-   real(8) :: yRnd(1:7),VgsWgt, EvalWeighted_HJJ
-   real(8) :: pdf(-6:6,1:2)
-   real(8) :: eta1, eta2, FluxFac, Ehat, sHatJacobi
-   real(8) :: MomExt(1:4,1:5), PSWgt,MomDK(1:4,1:4)
-   real(8) :: me2(-5:5,-5:5)
-   integer :: i,j,MY_IDUP(1:5),ICOLUP(1:2,1:5),NBin(1:NumHistograms),NHisto
-   real(8) :: LO_Res_Unpol, PreFac
-   logical :: applyPSCut
-   
-   EvalWeighted_HJJ = 0d0
-
-   call PDFMapping(1,yRnd(1:2),eta1,eta2,Ehat,sHatJacobi)
-
-   EvalCounter = EvalCounter+1
-
-   if (EHat.lt.M_Reso) return
-   if( Process.eq.60 ) call EvalPhaseSpace_VBF(EHat,M_Reso,yRnd(3:7),MomExt,PSWgt)
-   if( Process.eq.61 ) call EvalPhaseSpace_VBF(EHat,M_Reso,yRnd(3:7),MomExt,PSWgt)
-   call boost2Lab(eta1,eta2,5,MomExt(1:4,1:5))
-
-
-   if( Process.eq.60 ) call Kinematics_HVBF(5,MomExt,MomDK,applyPSCut,NBin)
-   if( Process.eq.61 ) call Kinematics_HJJ(5,MomExt,applyPSCut,NBin)
-   if( applyPSCut .or. PSWgt.eq.zero ) return
-   
-
-   call setPDFs(eta1,eta2,Mu_Fact,pdf)
-   FluxFac = 1d0/(2d0*EHat**2)
-
-   if (process.eq.60) then
-      call EvalAmp_WBFH_UnSymm_SA(MomExt,(/ghz1,ghz2,ghz3,ghz4/),(/ghw1,ghw2,ghw3,ghw4/),me2)
-      MY_IDUP(1:5)  = (/Up_,Up_,Up_,Up_,Hig_/)
-      ICOLUP(1:2,1) = (/501,000/)
-      ICOLUP(1:2,2) = (/502,000/)
-      ICOLUP(1:2,3) = (/501,000/)
-      ICOLUP(1:2,4) = (/502,000/)
-      ICOLUP(1:2,5) = (/000,000/)
-   elseif (process.eq.61) then
-      call EvalAmp_SBFH_UnSymm_SA(MomExt,(/ghg2,ghg3,ghg4/),me2)
-      me2 = me2 * (2d0/3d0*alphas**2)**2 
-      MY_IDUP(1:5)  = (/Up_,Up_,Up_,Up_,Hig_/)
-      ICOLUP(1:2,1) = (/501,000/)
-      ICOLUP(1:2,2) = (/502,000/)
-      ICOLUP(1:2,3) = (/501,000/)
-      ICOLUP(1:2,4) = (/502,000/)
-      ICOLUP(1:2,5) = (/000,000/)
-   endif
-   
-   LO_Res_Unpol = 0d0
-   do i = -5,5
-      do j = -5,5
-         LO_Res_Unpol = LO_Res_Unpol + me2(i,j)*pdf(LHA2M_pdf(i),1)*pdf(LHA2M_pdf(j),2)
-      enddo
-   enddo
-
-   PreFac = fbGeV2 * FluxFac * sHatJacobi * PSWgt 
-   EvalWeighted_HJJ = LO_Res_Unpol * PreFac
-
-
-   AccepCounter=AccepCounter+1
-   if( writeWeightedLHE ) then 
-       call WriteOutEvent_HVBF((/MomExt(1:4,1),MomExt(1:4,2),MomExt(1:4,3),MomExt(1:4,4),MomExt(1:4,5)/),MY_IDUP(1:5),ICOLUP(1:2,1:5),EventWeight=EvalWeighted_HJJ*VgsWgt)
-   endif
-   do NHisto=1,NumHistograms
-       call intoHisto(NHisto,NBin(NHisto),EvalWeighted_HJJ*VgsWgt)
-   enddo
-
-
-
-
- RETURN
- END FUNCTION EvalWeighted_HJJ
-
-
-
- 
-
-
-
-
- FUNCTION EvalUnWeighted_HJJ(yRnd,genEvt,iPartons,RES)
- use ModKinematics
- use ModParameters
- use ModHiggsjj
- use ModMisc
-#if compiler==1
- use ifport
-#endif
-implicit none
-real(8) :: yRnd(:),VgsWgt, EvalUnWeighted_HJJ,RES(-5:5,-5:5)
-real(8) :: pdf(-6:6,1:2)
-real(8) :: eta1, eta2, FluxFac, Ehat, sHatJacobi
-real(8) :: MomExt(1:4,1:5), PSWgt,MomDK(1:4,1:4)
-real(8) :: me2(-5:5,-5:5)
-integer :: i,j,k,iPartons(1:2)
-integer :: MY_IDUP(1:5),ICOLUP(1:2,1:5),NBin(1:NumHistograms),NHisto
-real(8) :: LO_Res_Unpol, PreFac, CS_max, sumtot
-logical :: applyPSCut,genEVT,zz_fusion
-include 'csmaxvalue.f'
-
-   EvalUnWeighted_HJJ = 0d0
-
-   call PDFMapping(1,yRnd(1:2),eta1,eta2,Ehat,sHatJacobi)
-
-
-   if (EHat.lt.M_Reso) return
-   if( Process.eq.60 ) call EvalPhaseSpace_VBF(EHat,M_Reso,yRnd(3:7),MomExt,PSWgt)
-   if( Process.eq.61 ) call EvalPhaseSpace_VBF(EHat,M_Reso,yRnd(3:7),MomExt,PSWgt)
-   call boost2Lab(eta1,eta2,5,MomExt(1:4,1:5))
-
-
-   if( Process.eq.60 ) call Kinematics_HVBF(5,MomExt,MomDK,applyPSCut,NBin)
-   if( Process.eq.61 ) call Kinematics_HJJ(5,MomExt,applyPSCut,NBin)
-   if( applyPSCut .or. PSWgt.eq.zero ) return
-   
-
-   call setPDFs(eta1,eta2,Mu_Fact,pdf)
-   FluxFac = 1d0/(2d0*EHat**2)
-   EvalCounter = EvalCounter+1
-
-   PreFac = fbGeV2 * FluxFac * sHatJacobi * PSWgt 
-
-
-   
-IF( GENEVT ) THEN
-
-!    sumtot = 0d0
-!    do i = -5,5
-!       do j = -5,5
-!          sumtot = sumtot + csmax(i,j)
-!       enddo
-!    enddo
-!    k=0; bound(0)=0d0
-!    do i = -5,5
-!       do j = -5,5
-!          k=k+1
-!          bound(k) = bound(k-1) + csmax(i,j)/sumtot
-!          if( yRnd(8).gt.bound(k-1) .and. yRnd(8).lt.bound(k)  ) then
-!             ifound=i; jfound=j;
-!             goto 1313
-!          endif
-!       enddo
-!    enddo
-! 1313 continue
-
-
-   if( Process.eq.60 ) then
-      call EvalAmp_WBFH_UnSymm_SA(MomExt,(/ghz1,ghz2,ghz3,ghz4/),(/ghw1,ghw2,ghw3,ghw4/),me2)
-
-      MY_IDUP(1:2)= (/LHA2M_ID(iPartons(1)),LHA2M_ID(iPartons(2))/)
-      if( MY_IDUP(1).gt.0 ) then ! quark
-          ICOLUP(1:2,1) = (/501,000/)
-      else! anti-quark
-          ICOLUP(1:2,1) = (/000,501/)
-      endif
-      if( MY_IDUP(2).gt.0 ) then! quark
-          ICOLUP(1:2,2) = (/502,000/)
-      else! anti-quark
-          ICOLUP(1:2,2) = (/000,502/)
-      endif
-
-      ZZ_fusion=.false.
-      if( MY_IDUP(1).eq.MY_IDUP(2) ) ZZ_fusion=.true.
-      if( any(MY_IDUP(1).eq.(/ Up_, Chm_,ADn_,AStr_,ABot_/)) .and. any(MY_IDUP(2).eq.(/ Up_, Chm_,ADn_,AStr_,ABot_/)) ) ZZ_fusion=.true.
-      if( any(MY_IDUP(1).eq.(/AUp_,AChm_, Dn_, Str_, Bot_/)) .and. any(MY_IDUP(2).eq.(/AUp_,AChm_, Dn_, Str_, Bot_/)) ) ZZ_fusion=.true.
-
-      if( ZZ_Fusion ) then
-          if( (MomExt(4,1)*MomExt(4,3).lt.0d0) .and. (MomExt(4,2)*MomExt(4,4).lt.0d0) ) then ! wrong configuration --> swap 3 and 4
-             MY_IDUP(3:4)= (/LHA2M_ID(iPartons(2)),LHA2M_ID(iPartons(1))/)
-             ICOLUP(1:2,4) = ICOLUP(1:2,1)
-             ICOLUP(1:2,3) = ICOLUP(1:2,2)
-          else! 
-             MY_IDUP(3:4)= (/LHA2M_ID(iPartons(1)),LHA2M_ID(iPartons(2))/)
-             ICOLUP(1:2,3) = ICOLUP(1:2,1)
-             ICOLUP(1:2,4) = ICOLUP(1:2,2)
-          endif
-      else! WW fusion
-          if( (MomExt(4,1)*MomExt(4,3).lt.0d0) .and. (MomExt(4,2)*MomExt(4,4).lt.0d0) ) then ! wrong configuration --> swap 3 and 4
-             MY_IDUP(3:4)= (/SU2flip(LHA2M_ID(iPartons(2))),SU2flip(LHA2M_ID(iPartons(1)))/)
-             if( abs(MY_IDUP(3)).eq.Top_ ) MY_IDUP(3) = sign(1,MY_IDUP(3))*Chm_
-             if( abs(MY_IDUP(4)).eq.Top_ ) MY_IDUP(4) = sign(1,MY_IDUP(4))*Chm_ 
-             ICOLUP(1:2,4) = ICOLUP(1:2,1)
-             ICOLUP(1:2,3) = ICOLUP(1:2,2)
-          else
-             MY_IDUP(3:4)= (/SU2flip(LHA2M_ID(iPartons(1))),SU2flip(LHA2M_ID(iPartons(2)))/)
-             if( abs(MY_IDUP(3)).eq.Top_ ) MY_IDUP(3) = sign(1,MY_IDUP(3))*Chm_
-             if( abs(MY_IDUP(4)).eq.Top_ ) MY_IDUP(4) = sign(1,MY_IDUP(4))*Chm_ 
-             ICOLUP(1:2,3) = ICOLUP(1:2,1)
-             ICOLUP(1:2,4) = ICOLUP(1:2,2)
-          endif         
-      endif
-      MY_IDUP(5)  = Hig_
-      ICOLUP(1:2,5) = (/000,000/)
-
-      
-   elseif( Process.eq.61 ) then
-      call EvalAmp_SBFH_UnSymm_SA(MomExt,(/ghg2,ghg3,ghg4/),me2)
-      me2 = me2 * (2d0/3d0*alphas**2)**2 !-- (alphas/sixpi gs^2)^2
-      MY_IDUP(1:5)  = (/LHA2M_ID(iPartons(1)),LHA2M_ID(iPartons(2)),LHA2M_ID(iPartons(1)),LHA2M_ID(iPartons(2)),Hig_/)
-
-      if( MY_IDUP(1).eq.Glu_ .and. MY_IDUP(2).eq.Glu_ ) then! gg->gg
-          ICOLUP(1:2,1) = (/501,502/)
-          ICOLUP(1:2,2) = (/503,501/)
-          ICOLUP(1:2,3) = (/504,502/)
-          ICOLUP(1:2,4) = (/503,504/)
-      elseif( MY_IDUP(1).ne.Glu_ .and. MY_IDUP(1).gt.0 .and. MY_IDUP(2).eq.Glu_ ) then! qg->qg
-          ICOLUP(1:2,1) = (/501,000/)
-          ICOLUP(1:2,2) = (/502,501/)
-          ICOLUP(1:2,3) = (/503,000/)
-          ICOLUP(1:2,4) = (/502,503/)   
-      elseif( MY_IDUP(1).ne.Glu_ .and. MY_IDUP(1).lt.0 .and. MY_IDUP(2).eq.Glu_ ) then! qbg->qbg
-          ICOLUP(1:2,1) = (/000,501/)
-          ICOLUP(1:2,2) = (/501,502/)
-          ICOLUP(1:2,3) = (/000,503/)
-          ICOLUP(1:2,4) = (/503,502/)
-      elseif( MY_IDUP(1).eq.Glu_ .and. MY_IDUP(2).ne.Glu_ .and. MY_IDUP(2).gt.0 ) then! gq->gq
-          ICOLUP(1:2,2) = (/501,000/)
-          ICOLUP(1:2,1) = (/502,501/)
-          ICOLUP(1:2,4) = (/503,000/)
-          ICOLUP(1:2,3) = (/502,503/)   
-      elseif( MY_IDUP(1).eq.Glu_ .and. MY_IDUP(2).ne.Glu_ .and. MY_IDUP(2).lt.0 ) then! gqb->gqb
-          ICOLUP(1:2,2) = (/000,501/)
-          ICOLUP(1:2,1) = (/501,502/)
-          ICOLUP(1:2,4) = (/000,503/)
-          ICOLUP(1:2,3) = (/503,502/)
-      elseif( MY_IDUP(1).gt.0 .and. MY_IDUP(2).lt.0 ) then! qqb->qqb
-          ICOLUP(1:2,1) = (/501,000/)
-          ICOLUP(1:2,2) = (/000,501/)
-          ICOLUP(1:2,3) = (/502,000/)
-          ICOLUP(1:2,4) = (/000,502/) 
-      elseif( MY_IDUP(1).gt.0 .and. MY_IDUP(2).gt.0 ) then! qq->qq
-          ICOLUP(1:2,1) = (/501,000/)
-          ICOLUP(1:2,2) = (/502,000/)
-          ICOLUP(1:2,3) = (/501,000/)
-          ICOLUP(1:2,4) = (/502,000/) 
-      elseif( MY_IDUP(1).lt.0 .and. MY_IDUP(2).gt.0 ) then! qbq->qbq
-          ICOLUP(1:2,2) = (/501,000/)
-          ICOLUP(1:2,1) = (/000,501/)
-          ICOLUP(1:2,4) = (/502,000/)
-          ICOLUP(1:2,3) = (/000,502/) 
-      elseif( MY_IDUP(1).lt.0 .and. MY_IDUP(2).lt.0 ) then! qbqb->qbqb
-          ICOLUP(1:2,1) = (/000,501/)
-          ICOLUP(1:2,2) = (/000,502/)
-          ICOLUP(1:2,3) = (/000,501/)
-          ICOLUP(1:2,4) = (/000,502/)
-      endif
-      if( (MomExt(4,1)*MomExt(4,3).lt.0d0) .and. (MomExt(4,2)*MomExt(4,4).lt.0d0) ) then
-        call swapi(MY_IDUP(3),MY_IDUP(4))
-        call swapi(ICOLUP(1,3),ICOLUP(1,4))
-        call swapi(ICOLUP(2,3),ICOLUP(2,4))
-      endif
-
-      ICOLUP(1:2,5) = (/000,000/) 
-   endif
-
-   LO_Res_Unpol =  me2(iPartons(1),iPartons(2)) * pdf(LHA2M_pdf(iPartons(1)),1)*pdf(LHA2M_pdf(iPartons(2)),2)
-   EvalUnWeighted_HJJ = LO_Res_Unpol * PreFac
-
-!    if( iPartons(1).eq.0 .and. iPartons(2).eq.0 ) then
-!        CS_max = csmax(iPartons(1),iPartons(2)) * adj_par 
-!    else
-!        CS_max = csmax(iPartons(1),iPartons(2))
-!    endif
-
-      CS_max = CSmax(iPartons(1),iPartons(2))
-      if( EvalUnWeighted_HJJ.gt. CS_max) then
-          write(io_stdout,"(2X,A,1PE13.6,1PE13.6)")  "CS_max is too small.",EvalUnWeighted_HJJ, CS_max
-          write(io_LogFile,"(2X,A,1PE13.6,1PE13.6)") "CS_max is too small.",EvalUnWeighted_HJJ, CS_max
-          AlertCounter = AlertCounter + 1
-          Res = 0d0
-
-      elseif( EvalUnWeighted_HJJ .gt. yRnd(14)*CS_max ) then
-         do NHisto=1,NumHistograms
-               call intoHisto(NHisto,NBin(NHisto),1d0)  ! CS_Max is the integration volume
-         enddo
-         AccepCounter = AccepCounter + 1
-         AccepCounter_part(iPartons(1),iPartons(2)) = AccepCounter_part(iPartons(1),iPartons(2))+1         
-         call WriteOutEvent_HVBF((/MomExt(1:4,1),MomExt(1:4,2),MomExt(1:4,3),MomExt(1:4,4),MomExt(1:4,5)/),MY_IDUP(1:5),ICOLUP(1:2,1:5))
-      else
-          RejeCounter = RejeCounter + 1
-      endif
-      EvalCounter = EvalCounter + 1 
-
-
-      
-      
-ELSE! NOT GENEVT
-
-
-
-
-   if( Process.eq.60 ) then
-      call EvalAmp_WBFH_UnSymm_SA(MomExt,(/ghz1,ghz2,ghz3,ghz4/),(/ghw1,ghw2,ghw3,ghw4/),me2)
-   elseif( Process.eq.61 ) then
-      call EvalAmp_SBFH_UnSymm_SA(MomExt,(/ghg2,ghg3,ghg4/),me2)
-      me2 = me2 * (2d0/3d0*alphas**2)**2
-   endif
-
-
-   LO_Res_Unpol = 0d0
-   do i = -5,5
-      do j = -5,5
-
-          LO_Res_Unpol = me2(i,j)*pdf(LHA2M_pdf(i),1)*pdf(LHA2M_pdf(j),2) * PreFac
-          EvalUnWeighted_HJJ = EvalUnWeighted_HJJ  + LO_Res_Unpol 
-
-          RES(i,j) = LO_Res_Unpol
-          if (LO_Res_Unpol.gt.CSmax(i,j)) then
-              CSmax(i,j) = LO_Res_Unpol
-          endif
-      enddo
-   enddo
-
-
-
-ENDIF! GENEVT
-
-
-RETURN
-END FUNCTION EvalUnWeighted_HJJ
-
-
-
-
-
-
-
-
-
 
 
 
@@ -787,13 +437,25 @@ Function EvalWeighted_VHiggs(yRnd,VgsWgt)
     elseif(DecayMode1.eq.5)then
       id(3)=convertLHE(Wp_)
       id(4)=convertLHE(Wp_)
-      if(yRnd(5).lt.0.5d0)then
-      id(6)=convertLHE(Up_)
-      id(7)=convertLHE(Adn_)
-    else
-      id(6)=convertLHE(Chm_)
-      id(7)=convertLHE(AStr_)
-    endif
+      if(yRnd(5).lt.0.16666666666667d0)then
+        id(6)=convertLHE(Up_)
+        id(7)=convertLHE(Adn_)
+      elseif(yRnd(5).lt.0.33333333333333d0)then
+        id(6)=convertLHE(Chm_)
+        id(7)=convertLHE(AStr_)
+      elseif(yRnd(5).lt.0.5d0)then
+        id(6)=convertLHE(Up_)
+        id(7)=convertLHE(AStr_)
+      elseif(yRnd(5).lt.0.66666666666667d0)then
+        id(6)=convertLHE(Chm_)
+        id(7)=convertLHE(Adn_)
+      elseif(yRnd(5).lt.0.83333333333333d0)then
+        id(6)=convertLHE(Up_)
+        id(7)=convertLHE(Abot_)
+      else
+        id(6)=convertLHE(Chm_)
+        id(7)=convertLHE(Abot_)
+      endif
       helicity(6)=sign(1d0,-dble(id(6)))
       helicity(7)=-helicity(6)
 
@@ -932,6 +594,9 @@ if( IsAZDecay(DecayMode1) ) then
       MomExt(4,2)=-MomExt(1,2)
 
       call EvalPhaseSpace_VH(yRnd,MomExt,inv_mass,mass,PSWgt)
+      call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
+      if( applyPSCut .or. PSWgt.eq.zero ) return
+
       call setPDFs(eta1,eta2,Mu_Fact,pdf)
       FluxFac = 1d0/(2d0*EHat**2)
       PreFac = fbGeV2 * FluxFac * sHatJacobi * PSWgt *6d0 !2 for e and mu, 3 for colors of b
@@ -967,6 +632,8 @@ if( IsAZDecay(DecayMode1) ) then
       MomExt(4,2)=-MomExt(1,2)
 
       call EvalPhaseSpace_VH(yRnd,MomExt,inv_mass,mass,PSWgt)
+      call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
+      if( applyPSCut .or. PSWgt.eq.zero ) return
 
       FluxFac = 1d0/(2d0*ILC_Energy**2)
       PreFac = fbGeV2 * FluxFac * PSWgt *6d0 !2 for e and mu, 3 for colors of b
@@ -1004,6 +671,9 @@ elseif( IsAWDecay(DecayMode1) ) then
       MomExt(4,2)=-MomExt(1,2)
 
       call EvalPhaseSpace_VH(yRnd,MomExt,inv_mass,mass,PSWgt)
+      call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
+      if( applyPSCut .or. PSWgt.eq.zero ) return
+
       call setPDFs(eta1,eta2,Mu_Fact,pdf)
       FluxFac = 1d0/(2d0*EHat**2)
       PreFac = fbGeV2 * FluxFac * sHatJacobi * PSWgt *6d0 !2 for e and mu, 3 for colors of b
@@ -1044,8 +714,6 @@ elseif( IsAPhoton(DecayMode1) ) then
   stop
 endif
 
-
-   call Kinematics_VHiggs(MomExt,inv_mass,NBin,applyPSCut)
 ! boost to the lab frame before writing .lhe
    
 !   do i=1,4
@@ -1065,12 +733,6 @@ endif
    cyRnd(2)=yRnd(8)
 !   cyRnd(3)=yRnd(11)
 !   cyRnd(4)=yRnd(10)
-   if(inv_mass(4).le.getMass(convertLHEreverse(id(6)))+getMass(convertLHEreverse(id(7))))then
-     print *, "Warning, invalid kinematics, event rejected!"
-     EvalWeighted_VHiggs=0d0
-     LO_Res_Unpol=0d0
-     return
-   endif
    call EvalPhasespace_VDecay(MomExt(1:4,4),inv_mass(4),getMass(convertLHEreverse(id(6))),getMass(convertLHEreverse(id(7))),cyRnd(1:2),MomExt(1:4,6:7),PSWgt2)
 !   call EvalPhasespace_VDecay(MomExt(1:4,3),inv_mass(3),getMass(convertLHEreverse(id(6)))*1d2,getMass(convertLHEreverse(id(7)))*1d2,cyRnd(3:4),MomExt(1:4,6:7),PSWgt2)
 
@@ -1306,13 +968,25 @@ elseif (DecayMode1.eq.4) then
 elseif(DecayMode1.eq.5)then
   id(3)=convertLHE(Wp_)
   id(4)=convertLHE(Wp_)
-  if(yRnd(5).lt.0.5d0)then
-    id(6)=convertLHE(Up_)
-    id(7)=convertLHE(Adn_)
-  else
-    id(6)=convertLHE(Chm_)
-    id(7)=convertLHE(AStr_)
-  endif
+  if(yRnd(5).lt.0.16666666666667d0)then
+        id(6)=convertLHE(Up_)
+        id(7)=convertLHE(Adn_)
+      elseif(yRnd(5).lt.0.33333333333333d0)then
+        id(6)=convertLHE(Chm_)
+        id(7)=convertLHE(AStr_)
+      elseif(yRnd(5).lt.0.5d0)then
+        id(6)=convertLHE(Up_)
+        id(7)=convertLHE(AStr_)
+      elseif(yRnd(5).lt.0.66666666666667d0)then
+        id(6)=convertLHE(Chm_)
+        id(7)=convertLHE(Adn_)
+      elseif(yRnd(5).lt.0.83333333333333d0)then
+        id(6)=convertLHE(Up_)
+        id(7)=convertLHE(Abot_)
+      else
+        id(6)=convertLHE(Chm_)
+        id(7)=convertLHE(Abot_)
+      endif
   helicity(6)=sign(1d0,-dble(id(6)))
   helicity(7)=-helicity(6)
 
@@ -1405,21 +1079,33 @@ elseif(DecayMode1.eq.10)then
 elseif(DecayMode1.eq.11)then
   id(3)=convertLHE(Wp_)
   id(4)=convertLHE(Wp_)
-  if(yRnd(5).lt.1d0/9d0)then
+  if(yRnd(5).lt.1d0/21d0)then
     id(7)=convertLHE(ElP_)
     id(6)=convertLHE(NuE_)
-  elseif(yRnd(5).lt.(2d0/9d0))then
+  elseif(yRnd(5).lt.(2d0/21d0))then
     id(7)=convertLHE(MuP_)
     id(6)=convertLHE(NuM_)
-  elseif(yRnd(5).lt.(3d0/9d0))then
+  elseif(yRnd(5).lt.(3d0/21d0))then
     id(7)=convertLHE(TaP_)
     id(6)=convertLHE(NuT_)
-  elseif(yRnd(5).lt.(6d0/9d0))then
+  elseif(yRnd(5).lt.(6d0/21d0))then
     id(6)=convertLHE(Up_)
     id(7)=convertLHE(Adn_)
-  else
+  elseif(yRnd(5).lt.(9d0/21d0))then
     id(6)=convertLHE(Chm_)
     id(7)=convertLHE(AStr_)
+  elseif(yRnd(5).lt.(12d0/21d0))then
+    id(6)=convertLHE(Up_)
+    id(7)=convertLHE(AStr_)
+  elseif(yRnd(5).lt.(15d0/21d0))then
+    id(6)=convertLHE(Chm_)
+    id(7)=convertLHE(Adn_)
+  elseif(yRnd(5).lt.(18d0/21d0))then
+    id(6)=convertLHE(Up_)
+    id(7)=convertLHE(Abot_)
+  else
+    id(6)=convertLHE(Chm_)
+    id(7)=convertLHE(Abot_)
   endif
   helicity(6)=sign(1d0,-dble(id(6)))
   helicity(7)=-helicity(6)
@@ -1451,6 +1137,9 @@ if( IsAZDecay(DecayMode1) ) then
       MomExt(4,2)=-MomExt(1,2)
 
       call EvalPhaseSpace_VH(yRnd,MomExt,inv_mass,mass,PSWgt)
+      call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
+      if( applyPSCut .or. PSWgt.eq.zero ) return
+
       call setPDFs(eta1,eta2,Mu_Fact,pdf)
       FluxFac = 1d0/(2d0*EHat**2)
       PreFac = fbGeV2 * FluxFac * sHatJacobi * PSWgt/3d0! *6d0 !2 for e and mu, 3 for colors of b
@@ -1472,6 +1161,9 @@ if( IsAZDecay(DecayMode1) ) then
       MomExt(4,2)=-MomExt(1,2)
 
       call EvalPhaseSpace_VH(yRnd,MomExt,inv_mass,mass,PSWgt)
+      call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
+      if( applyPSCut .or. PSWgt.eq.zero ) return
+
       FluxFac = 1d0/(2d0*ILC_Energy**2)
       PreFac = fbGeV2 * FluxFac * PSWgt
     endif
@@ -1494,6 +1186,9 @@ elseif( IsAWDecay(DecayMode1) ) then
       MomExt(4,2)=-MomExt(1,2)
 
       call EvalPhaseSpace_VH(yRnd,MomExt,inv_mass,mass,PSWgt)
+      call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
+      if( applyPSCut .or. PSWgt.eq.zero ) return
+
       call setPDFs(eta1,eta2,Mu_Fact,pdf)
       FluxFac = 1d0/(2d0*EHat**2)
       PreFac = fbGeV2 * FluxFac * sHatJacobi * PSWgt/3d0! *6d0 !2 for e and mu, 3 for colors of qqb
@@ -1583,7 +1278,7 @@ endif
     Res = 0d0
   elseif( EvalUnWeighted_VHiggs .gt. yRnd(17)*CS_max ) then
 
-    call Kinematics_VHiggs(MomExt,inv_mass,NBin,applyPSCut)
+    call Kinematics_VHiggs(id,MomExt,inv_mass,NBin,applyPSCut)
 
     do NHisto=1,NumHistograms
       call intoHisto(NHisto,NBin(NHisto),1d0)  ! CS_Max is the integration volume
@@ -1600,11 +1295,11 @@ endif
 !    enddo
     cyRnd(1)=yRnd(9)
     cyRnd(2)=yRnd(8)
-    if(inv_mass(4).le.getMass(convertLHEreverse(id(6)))+getMass(convertLHEreverse(id(7))))then
-      print *, "Warning, invalid kinematics, event rejected!"
-      RejeCounter = RejeCounter + 1
-      return
-    endif
+    !if(inv_mass(4).le.getMass(convertLHEreverse(id(6)))+getMass(convertLHEreverse(id(7))))then
+    !  print *, "Warning, invalid kinematics, event rejected!"
+    !  RejeCounter = RejeCounter + 1
+    !  return
+    !endif
     call EvalPhasespace_VDecay(MomExt(1:4,4),inv_mass(4),getMass(convertLHEreverse(id(6))),getMass(convertLHEreverse(id(7))),cyRnd(1:2),MomExt(1:4,6:7),PSWgt2)
     if(Collider.eq.1)then
       call boost2Lab(eta1,eta2,9,MomExt(1:4,1:9))
@@ -1625,6 +1320,7 @@ endif
     enddo
 
     call WriteOutEvent_VHiggs(id,helicity,MomExt,inv_mass,EventWeight=1d0)
+
   
   else
     RejeCounter = RejeCounter + 1
@@ -2034,6 +1730,80 @@ ENDIF! GENEVT
       if( EvalWeighted .gt. PartitionMax(xBin(1),xBin(2)) ) PartitionMax(xBin(1),xBin(2)) = EvalWeighted
 !       if( EvalWeighted .gt. PartitionMax(xBin(1),xBin(2),xBin(3),xBin(4)) ) PartitionMax(xBin(1),xBin(2),xBin(3),xBin(4)) = EvalWeighted
 
+
+RETURN
+END FUNCTION
+
+
+
+
+
+
+
+ FUNCTION EvalWeighted_tautau(yRnd,VgsWgt)
+ use ModKinematics 
+ use ModParameters
+ use ModGraviton
+ use ModHiggs
+ use ModZprime
+ use ModMisc
+#if compiler==1
+ use ifport
+#endif
+ implicit none
+ real(8) :: EvalWeighted_tautau,LO_Res_Unpol,yRnd(1:22),VgsWgt
+ real(8) :: eta1,eta2,tau,x1,x2,sHatJacobi,PreFac,FluxFac,PDFFac,PDFFac1,PDFFac2
+ real(8) :: pdf(-6:6,1:2)
+ integer :: NBin(1:NumHistograms),NHisto,i,MY_IDUP(1:9), ICOLUP(1:2,1:9)
+ real(8) :: EHat,PSWgt,PSWgt2,PSWgt3
+ logical :: applyPSCut
+ real(8) :: pHiggs(1:4),Mom(1:4,1:12)
+
+
+ 
+    EvalWeighted_tautau = 0d0
+    if( OffShellReson ) then
+      call PDFMapping(10,yRnd(1:2),eta1,eta2,Ehat,sHatJacobi)
+    else
+!       call PDFMapping(11,yRnd(1:2),eta1,eta2,Ehat,sHatJacobi)
+      call PDFMapping(12,yRnd(1:2),eta1,eta2,Ehat,sHatJacobi)
+    endif
+    EvalCounter = EvalCounter+1
+  
+    MY_IDUP(1:2) = (/ElP_,MuM_/)
+    pHiggs(2:4) = (/110d0, -60d0,95d0  /)
+    pHiggs(1) = dsqrt( M_Reso**2 + pHiggs(2)**2+ pHiggs(3)**2+ pHiggs(4)**2 )
+    call EvalPhasespace_tautau(yRnd(1:12),pHiggs,MY_IDUP,Mom,PSWgt)
+
+    
+    call Kinematics_Htautau(Mom,applyPSCut,NBin)
+    if( applyPSCut ) then
+      EvalWeighted_tautau = 0d0
+      return
+    endif
+
+    
+   call setPDFs(eta1,eta2,Mu_Fact,pdf)
+   FluxFac = 1d0/(2d0*EHat**2)
+
+   PDFFac = pdf(0,1) * pdf(0,2)
+
+!       call matrix element here
+      LO_Res_Unpol = 1d0
+      
+      
+      LO_Res_Unpol = LO_Res_Unpol * SpinAvg * GluonColAvg**2
+      PreFac = 2d0 * fbGeV2 * FluxFac * sHatJacobi * PSWgt * PDFFac * SymmFac
+      if( abs(MY_IDUP(6)).ge.1 .and. abs(MY_IDUP(6)).le.6 ) PreFac = PreFac * 3d0 ! =Nc
+      if( abs(MY_IDUP(8)).ge.1 .and. abs(MY_IDUP(8)).le.6 ) PreFac = PreFac * 3d0 ! =Nc
+      EvalWeighted_tautau = LO_Res_Unpol * PreFac
+
+
+      do NHisto=1,NumHistograms
+          call intoHisto(NHisto,NBin(NHisto),EvalWeighted_tautau*VgsWgt)
+      enddo
+
+      
 
 RETURN
 END FUNCTION
@@ -3056,7 +2826,7 @@ END FUNCTION
 
 
 
-FUNCTION EvalUnWeighted_withoutProduction(yRnd,genEvt,Ehat,Res,AcceptedEvent,MY_IDUP,ICOLUP)
+FUNCTION EvalUnWeighted_DecayToVV(yRnd,genEvt,Ehat,Res,AcceptedEvent,MY_IDUP,ICOLUP)
 use ModKinematics
 use ModParameters
 use ModHiggs
@@ -3068,7 +2838,7 @@ use ifport
 #endif
 implicit none
 real(8) :: Res!  .ne.0: accepted event,  .eq.0: reject event,   .eq.-1: reject event and exit the loop over 'tries'
-real(8) :: EvalUnWeighted_withoutProduction,LO_Res_Unpol,yRnd(1:22),VgsWgt,LO_Res_Unpol1,LO_Res_Unpol2
+real(8) :: EvalUnWeighted_DecayToVV,LO_Res_Unpol,yRnd(1:22),VgsWgt,LO_Res_Unpol1,LO_Res_Unpol2
 real(8) :: tau,x1,x2,sHatJacobi,PreFac
 integer :: NBin(1:NumHistograms),NHisto,i
 real(8) :: EHat,PSWgt,PSWgt2,PSWgt3
@@ -3085,7 +2855,7 @@ include 'csmaxvalue.f'
 
    oneovervolume = one
    ICOLUP(1:2,1:9) = 0
-   EvalUnWeighted_withoutProduction = 0d0
+   EvalUnWeighted_DecayToVV = 0d0
    Res = 0d0
    EvalCounter = EvalCounter+1
 
@@ -3208,7 +2978,7 @@ include 'csmaxvalue.f'
 
 
     if( MZ1+MZ2.gt.EHat ) then
-      EvalUnWeighted_withoutProduction = 0d0
+      EvalUnWeighted_DecayToVV = 0d0
       RejeCounter = RejeCounter + 1
       return
     endif
@@ -3223,7 +2993,7 @@ include 'csmaxvalue.f'
       ML3 = getMass(MY_IDUP(9))
       ML4 = getMass(MY_IDUP(8))
       if( (MZ1.lt.ML1+ML2) .or. (MZ2.lt.ML3+ML4) ) then
-          EvalUnWeighted_withoutProduction = 0d0
+          EvalUnWeighted_DecayToVV = 0d0
           RejeCounter = RejeCounter + 1
           return
       endif
@@ -3246,7 +3016,7 @@ include 'csmaxvalue.f'
         ML2 = getMass(MY_IDUP(6))
         ML3=0d0; ML4=0d0
         if( (MZ1.lt.ML1+ML2) ) then
-            EvalUnWeighted_withoutProduction = 0d0
+            EvalUnWeighted_DecayToVV = 0d0
             return
         endif
         call EvalPhasespace_VDecay(MomExt(1:4,3),MZ1,ML1,ML2,yRnd(5:6),MomDK(1:4,1:2),PSWgt2)
@@ -3263,7 +3033,7 @@ include 'csmaxvalue.f'
         call Kinematics(4,MomExt_f,MomDK_f,applyPSCut,NBin)
     endif
     if( applyPSCut ) then
-      EvalUnWeighted_withoutProduction = 0d0
+      EvalUnWeighted_DecayToVV = 0d0
       return
     endif
 
@@ -3292,17 +3062,17 @@ IF( GENEVT ) THEN
       PreFac = 2d0 * fbGeV2 * sHatJacobi * PSWgt * SymmFac
 !       if( abs(MY_IDUP(6)).ge.1 .and. abs(MY_IDUP(6)).le.6 ) PreFac = PreFac * 3d0 ! =Nc
 !       if( abs(MY_IDUP(8)).ge.1 .and. abs(MY_IDUP(8)).le.6 ) PreFac = PreFac * 3d0 ! =Nc
-      EvalUnWeighted_withoutProduction = LO_Res_Unpol * PreFac
+      EvalUnWeighted_DecayToVV = LO_Res_Unpol * PreFac
 
       CS_max = csmax(0,0)
 
-      if( EvalUnWeighted_withoutProduction .gt. CS_max) then
-          write(io_stdout,"(2X,A,1PE13.6,1PE13.6)")  "CS_max is too small.",EvalUnWeighted_withoutProduction, CS_max
-          write(io_LogFile,"(2X,A,1PE13.6,1PE13.6)") "CS_max is too small.",EvalUnWeighted_withoutProduction, CS_max
+      if( EvalUnWeighted_DecayToVV .gt. CS_max) then
+          write(io_stdout,"(2X,A,1PE13.6,1PE13.6)")  "CS_max is too small.",EvalUnWeighted_DecayToVV, CS_max
+          write(io_LogFile,"(2X,A,1PE13.6,1PE13.6)") "CS_max is too small.",EvalUnWeighted_DecayToVV, CS_max
           AlertCounter = AlertCounter + 1
           Res = 0d0
 
-      elseif( EvalUnWeighted_withoutProduction .gt. yRnd(14)*CS_max ) then
+      elseif( EvalUnWeighted_DecayToVV .gt. yRnd(14)*CS_max ) then
       
          if( RequestNLeptons.gt.0 ) then! lepton filter
                 LeptInEvent_tmp(0:8) = LeptInEvent(0:8)
@@ -3390,12 +3160,12 @@ ELSE! NOT GENEVT
      PreFac = 2d0 * fbGeV2 * sHatJacobi * PSWgt * SymmFac
 !       if( abs(MY_IDUP(6)).ge.1 .and. abs(MY_IDUP(6)).le.6 ) PreFac = PreFac * 3d0 ! =Nc
 !       if( abs(MY_IDUP(8)).ge.1 .and. abs(MY_IDUP(8)).le.6 ) PreFac = PreFac * 3d0 ! =Nc
-      EvalUnWeighted_withoutProduction = LO_Res_Unpol * PreFac
-      Res = EvalUnWeighted_withoutProduction
+      EvalUnWeighted_DecayToVV = LO_Res_Unpol * PreFac
+      Res = EvalUnWeighted_DecayToVV
 
 
-      if (EvalUnWeighted_withoutProduction.gt.csmax(0,0)) then
-          csmax(0,0) = EvalUnWeighted_withoutProduction
+      if (EvalUnWeighted_DecayToVV.gt.csmax(0,0)) then
+          csmax(0,0) = EvalUnWeighted_DecayToVV
       endif
 
 
@@ -3404,6 +3174,49 @@ ENDIF! genEvt
 
 RETURN
 END FUNCTION
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FUNCTION EvalUnWeighted_DecayToTT(yRnd)
+use ModKinematics
+use ModParameters
+use ModMisc
+#if compiler==1
+use ifport
+#endif
+implicit none
+real(8) :: EvalUnWeighted_DecayToTT
+real(8) :: yRnd(1:12),pHiggs(1:4),Mom(1:4,1:10),Jac
+integer :: MY_IDUP(1:2)
+EvalUnWeighted_DecayToTT = 0d0
+
+
+  
+  MY_IDUP(1:2) = (/ElP_,MuM_/)
+  pHiggs(2:4) = (/110d0, -60d0,95d0  /)
+  pHiggs(1) = dsqrt( M_Reso**2 + pHiggs(2)**2+ pHiggs(3)**2+ pHiggs(4)**2 )
+  call EvalPhasespace_tautau(yRnd(1:12),pHiggs,MY_IDUP,Mom,Jac)
+
+
+
+RETURN
+END FUNCTION
+
+
 
 
 

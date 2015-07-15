@@ -274,7 +274,486 @@ integer :: i,j,temp
 END SUBROUTINE
 
 
+function FindInputFmt0(EventInfoLine)
+implicit none
+character(len=*) :: EventInfoLine
+character(len=150) FindInputFmt0
+integer :: i
+i = 1
+do while (EventInfoLine(i+1:i+1) .eq. " ")
+    i = i+1
+end do
+if (i.eq.1) then
+    FindInputFmt0 = "(I2,A160)"
+else
+    write(FindInputFmt0, "(A,I2,A)") "(", i, "X,I2,A160)"
+endif
+return
+end function FindInputFmt0
 
+
+
+function FindInputFmt1(ParticleLine)
+implicit none
+character(len=*) :: ParticleLine
+integer :: i, fieldwidth, spaces(1:13)
+character(len=150) :: FindInputFmt1
+integer :: MomentumCharacters, LifetimeCharacters, LifetimeDigitsAfterDecimal, SpinCharacters, SpinDigitsAfterDecimal
+logical :: LifetimeIsExponential, SpinIsExponential
+character(len=20) :: MomentumFormat
+character(len=40) :: FormatParts(11)
+!first find the number of spaces at the beginning
+i = 1
+spaces(1) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(1) = spaces(1)+1
+end do
+!now find the width of the id; assume it's right aligned.
+fieldwidth = 0
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    fieldwidth = fieldwidth+1
+end do
+spaces(1) = spaces(1) + fieldwidth - 3
+
+!number of spaces between the id and the status
+spaces(2) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(2) = spaces(2)+1
+end do
+!width of the status (should be -1, so width 2, but just in case)
+fieldwidth = 0
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    fieldwidth = fieldwidth+1
+end do
+spaces(2) = spaces(2) + fieldwidth - 2
+
+!number of spaces between the status and the first mother
+spaces(3) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(3) = spaces(3)+1
+end do
+fieldwidth = 0
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    fieldwidth = fieldwidth+1
+end do
+spaces(3) = spaces(3) + fieldwidth - 2
+
+!number of spaces between the mothers
+spaces(4) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(4) = spaces(4)+1
+end do
+fieldwidth = 0
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    fieldwidth = fieldwidth+1
+end do
+spaces(4) = spaces(4) + fieldwidth - 2
+
+!number of spaces between the second mother and the color
+spaces(5) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(5) = spaces(5)+1
+end do
+fieldwidth = 0
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    fieldwidth = fieldwidth+1
+end do
+spaces(5) = spaces(5) + fieldwidth - 3
+
+!number of spaces between the color and the anticolor
+spaces(6) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(6) = spaces(6)+1
+end do
+fieldwidth = 0
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    fieldwidth = fieldwidth+1
+end do
+spaces(6) = spaces(6) + fieldwidth - 3
+
+!number of spaces between the anticolor and px
+!From now on the alignment is simpler, every row will have the same width
+!   except for possibly a - sign at the beginning
+!Unfortunately now there's number formatting to worry about
+!I will assume that the momentum components and the mass all have the same formatting
+spaces(7) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(7) = spaces(7)+1
+end do
+if (ParticleLine(i:i) .eq. "-") then
+    i = i+1
+else
+    spaces(7) = spaces(7)-1  !because the place where the - sign is supposed to go is not always a space
+endif
+!i is now on the first actual digit (not -) of px
+
+!number of characters used for momentum
+MomentumCharacters = 1           !we are already past the -
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+    MomentumCharacters = MomentumCharacters+1
+end do
+
+!number of spaces between px and py
+spaces(8) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(8) = spaces(8)+1
+end do
+i = i+1
+if (ParticleLine(i:i) .ne. "-") then
+    spaces(8) = spaces(8)-1  !because the place where the - sign is supposed to go is not always a space
+endif
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+enddo
+
+!number of spaces between py and pz
+spaces(9) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(9) = spaces(9)+1
+end do
+i = i+1
+if (ParticleLine(i:i) .ne. "-") then
+    spaces(9) = spaces(9)-1  !because the place where the - sign is supposed to go is not always a space
+endif
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+enddo
+
+!number of spaces between pz and E
+spaces(10) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(10) = spaces(10)+1
+end do
+i = i+1
+if (ParticleLine(i:i) .ne. "-") then
+    spaces(10) = spaces(10)-1  !because the place where the - sign is supposed to go is not always a space
+endif
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+enddo
+
+!number of spaces between E and m
+spaces(11) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(11) = spaces(11)+1
+end do
+i = i+1
+if (ParticleLine(i:i) .ne. "-") then
+    spaces(11) = spaces(11)-1  !because the place where the - sign is supposed to go is not always a space
+endif
+do while (ParticleLine(i:i) .ne. " ")
+    i = i+1
+enddo
+
+!number of spaces between m and lifetime
+!lifetime is nonnegative, so no - sign
+!but some generators (JHUGen) write 0.00000000000E+00
+!while some (old JHUGen, some versions of MadGraph) write 0.
+spaces(12) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(12) = spaces(12)+1
+end do
+
+!lifetime formatting
+LifetimeCharacters = 0
+LifetimeDigitsAfterDecimal = -1
+LifetimeIsExponential = .false.
+do while (ParticleLine(i:i) .ne. " ")
+    if ((LifetimeDigitsAfterDecimal .ge. 0 .and. .not.LifetimeIsExponential) &
+            .or. ParticleLine(i:i) .eq. ".") then
+        LifetimeDigitsAfterDecimal = LifetimeDigitsAfterDecimal+1
+    endif
+    if (ParticleLine(i:i) .eq. "E" .or. ParticleLine(i:i) .eq. "e") then
+        LifetimeIsExponential = .true.
+    endif
+    i = i+1
+    LifetimeCharacters = LifetimeCharacters+1
+enddo
+
+!number of spaces between lifetime and spin
+!spin has all the complications of lifetime, plus it might be negative
+spaces(13) = 0
+do while (ParticleLine(i:i) .eq. " ")
+    i = i+1
+    spaces(13) = spaces(13)+1
+end do
+if (ParticleLine(i:i) .eq. "-") then
+    i = i+1
+else
+    spaces(13) = spaces(13)-1  !because the place where the - sign is supposed to go is not always a space
+endif
+!i is now on the first digit of the spin
+
+!spin formatting
+SpinCharacters = 1             !we are already past the -
+SpinDigitsAfterDecimal = -1
+SpinIsExponential = .false.
+do while (ParticleLine(i:i) .ne. " ")
+    if (SpinDigitsAfterDecimal .ge. 0 .or. ParticleLine(i:i) .eq. ".") then
+        SpinDigitsAfterDecimal = SpinDigitsAfterDecimal+1
+    endif
+    if (ParticleLine(i:i) .eq. "E" .or. ParticleLine(i:i) .eq. "e") then
+        SpinIsExponential = .true.
+    endif
+    i = i+1
+    SpinCharacters = SpinCharacters+1
+enddo
+
+!check that spaces(i) > 0
+!(besides for spaces(1), before the id, which can be 0)
+!the only way this can happen, consistent with the definition of lhe format,
+! is for a column not to leave extra space for a -
+do i=2,13
+    if (spaces(i).eq.0) then
+        spaces(i) = 1
+        if (i.eq.7) then   !we counted the nonexistant space for - in MomentumCharacters
+            MomentumCharacters = MomentumCharacters-1
+        endif
+        if (i.eq.13) then  !same
+            SpinCharacters = SpinCharacters-1
+        endif
+    endif
+enddo
+
+!Ok, now we construct the format string
+!Initial spaces and id
+if (spaces(1).eq.0) then
+    FormatParts(1) = "(I3,"
+else
+    write(FormatParts(1),"(A,I1,A)") "(", spaces(1), "X,I3,"
+endif
+!spaces and status
+write(FormatParts(2),"(I1,A)") spaces(2), "X,I2,"
+!spaces and mothers
+write(FormatParts(3),"(I1,A,I1,A)") spaces(3), "X,I2,", spaces(4), "X,I2,"
+!spaces and colors
+write(FormatParts(4),"(I1,A,I1,A)") spaces(5), "X,I3,", spaces(6), "X,I3,"
+
+!momentum format
+if (MomentumCharacters .lt. 10) then
+    write(MomentumFormat,"(A,I1,A,I1,A)") "1PE",MomentumCharacters,".",MomentumCharacters-7,","
+elseif (MomentumCharacters .lt. 17) then
+    write(MomentumFormat,"(A,I2,A,I1,A)") "1PE",MomentumCharacters,".",MomentumCharacters-7,","
+else
+    write(MomentumFormat,"(A,I2,A,I2,A)") "1PE",MomentumCharacters,".",MomentumCharacters-7,","
+endif
+
+!spaces and px
+write(FormatParts(5),"(I1,A,A)") spaces(7), "X,", trim(MomentumFormat)
+!spaces and py
+write(FormatParts(6),"(I1,A,A)") spaces(8), "X,", trim(MomentumFormat)
+!spaces and pz
+write(FormatParts(7),"(I1,A,A)") spaces(9), "X,", trim(MomentumFormat)
+!spaces and E
+write(FormatParts(8),"(I1,A,A)") spaces(10), "X,", trim(MomentumFormat)
+!spaces and m
+write(FormatParts(9),"(I1,A,A)") spaces(11), "X,", trim(MomentumFormat)
+
+!spaces and lifetime
+if (LifetimeIsExponential) then
+    if (LifetimeCharacters .lt. 10) then
+        write(FormatParts(10),"(I1,A,I1,A,I1,A)") &
+            spaces(12), "X,1PE",LifetimeCharacters,".",LifetimeDigitsAfterDecimal,","
+    elseif (LifetimeDigitsAfterDecimal.lt.10) then
+        write(FormatParts(10),"(I1,A,I2,A,I1,A)") &
+            spaces(12), "X,1PE",LifetimeCharacters,".",LifetimeDigitsAfterDecimal,","
+    else
+        write(FormatParts(10),"(I1,A,I2,A,I2,A)") &
+            spaces(12), "X,1PE",LifetimeCharacters,".",LifetimeDigitsAfterDecimal,","
+    endif
+else
+    if (LifetimeCharacters .lt. 10) then
+        write(FormatParts(10),"(I1,A,I1,A,I1,A)") &
+            spaces(12), "X,1F",LifetimeCharacters,".",LifetimeDigitsAfterDecimal,","
+    elseif (LifetimeDigitsAfterDecimal.lt.10) then
+        write(FormatParts(10),"(I1,A,I2,A,I1,A)") &
+            spaces(12), "X,1F",LifetimeCharacters,".",LifetimeDigitsAfterDecimal,","
+    else
+        write(FormatParts(10),"(I1,A,I2,A,I2,A)") &
+            spaces(12), "X,1F",LifetimeCharacters,".",LifetimeDigitsAfterDecimal,","
+    endif
+endif
+
+!spaces and spin
+if (SpinIsExponential) then
+    if (SpinCharacters .lt. 10) then
+        write(FormatParts(11),"(I1,A,I1,A,I1,A)") &
+            spaces(13), "X,1PE",SpinCharacters,".",SpinDigitsAfterDecimal,")"
+    elseif (SpinDigitsAfterDecimal.lt.10) then
+        write(FormatParts(11),"(I1,A,I2,A,I1,A)") &
+            spaces(13), "X,1PE",SpinCharacters,".",SpinDigitsAfterDecimal,")"
+    else
+        write(FormatParts(11),"(I1,A,I2,A,I2,A)") &
+            spaces(13), "X,1PE",SpinCharacters,".",SpinDigitsAfterDecimal,")"
+    endif
+else
+    if (SpinCharacters .lt. 10) then
+        write(FormatParts(11),"(I1,A,I1,A,I1,A)") &
+            spaces(13), "X,1F",SpinCharacters,".",SpinDigitsAfterDecimal,")"
+    elseif (SpinDigitsAfterDecimal.lt.10) then
+        write(FormatParts(11),"(I1,A,I2,A,I1,A)") &
+            spaces(13), "X,1F",SpinCharacters,".",SpinDigitsAfterDecimal,")"
+    else
+        write(FormatParts(11),"(I1,A,I2,A,I2,A)") &
+            spaces(13), "X,1F",SpinCharacters,".",SpinDigitsAfterDecimal,")"
+    endif
+endif
+
+!do i=1,11
+!    print *, FormatParts(i)
+!enddo
+
+FindInputFmt1 = (trim(FormatParts(1))  &
+              // trim(FormatParts(2))  &
+              // trim(FormatParts(3))  &
+              // trim(FormatParts(4))  &
+              // trim(FormatParts(5))  &
+              // trim(FormatParts(6))  &
+              // trim(FormatParts(7))  &
+              // trim(FormatParts(8))  &
+              // trim(FormatParts(9))  &
+              // trim(FormatParts(10)) &
+              // trim(FormatParts(11)))
+return
+end function FindInputFmt1
+
+
+
+function Capitalize(InputString)
+implicit none
+character(len=150) :: InputString
+character(len=150) :: Capitalize
+character(len=26), parameter :: lower = "abcdefghijklmnopqrstuvwxyz"
+character(len=26), parameter :: upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+integer :: i, j
+
+Capitalize = ""
+
+do i=1,len(trim(InputString))
+    j = Index(lower,InputString(i:i))
+    if (j.ne.0) then
+        Capitalize(i:i) = upper(j:j)
+    else
+        Capitalize(i:i) = InputString(i:i)
+    endif
+enddo
+return
+end function Capitalize
+
+
+
+
+
+
+
+subroutine spinoru(N,p,za,zb,s)
+!---Calculate spinor products      
+!---taken from MCFM & modified by R. Rontsch, May 2015
+!---extended to deal with negative energies ie with all momenta outgoing                                                                
+!---Arbitrary conventions of Bern, Dixon, Kosower, Weinzierl,                                                                                  
+!---za(i,j)*zb(j,i)=s(i,j)                      
+      implicit none
+      real(8) :: p(:,:),two
+      integer, parameter :: mxpart=14
+      complex(8):: c23(N),f(N),rt(N),za(:,:),zb(:,:),czero,cone,ci
+      real(8)   :: s(:,:)
+      integer i,j,N
+      
+      if (size(p,1) .ne. N) then
+         call Error("spinorz: momentum mismatch")
+      endif
+      two=2d0
+      czero=dcmplx(0d0,0d0)
+      cone=dcmplx(1d0,0d0)
+      ci=dcmplx(0d0,1d0)
+      
+
+!---if one of the vectors happens to be zero this routine fails.                                                                                                                
+      do j=1,N
+         za(j,j)=czero
+         zb(j,j)=za(j,j)
+
+!-----positive energy case                                                                                                                                                      
+         if (p(j,4) .gt. 0d0) then
+            rt(j)=dsqrt(p(j,4)+p(j,1))
+            c23(j)=dcmplx(p(j,3),-p(j,2))
+            f(j)=cone
+         else
+!-----negative energy case                                                                                                                                                      
+            rt(j)=dsqrt(-p(j,4)-p(j,1))
+            c23(j)=dcmplx(-p(j,3),p(j,2))
+            f(j)=ci
+         endif
+      enddo
+      do i=2,N
+         do j=1,i-1
+         s(i,j)=two*(p(i,4)*p(j,4)-p(i,1)*p(j,1)-p(i,2)*p(j,2)-p(i,3)*p(j,3))
+         za(i,j)=f(i)*f(j)*(c23(i)*dcmplx(rt(j)/rt(i))-c23(j)*dcmplx(rt(i)/rt(j)))
+
+         if (abs(s(i,j)).lt.1d-5) then
+         zb(i,j)=-(f(i)*f(j))**2*dconjg(za(i,j))
+         else
+         zb(i,j)=-dcmplx(s(i,j))/za(i,j)
+         endif
+         za(j,i)=-za(i,j)
+         zb(j,i)=-zb(i,j)
+         s(j,i)=s(i,j)
+         enddo
+      enddo
+
+    end subroutine spinoru
+
+    
+    
+    
+    
+    
+    subroutine convert_to_MCFM(p,pout)
+      implicit none
+! converts from (E,px,py,pz) to (px,py,pz,E)
+      real(8) :: p(1:4),tmp(1:4)
+      real(8), optional :: pout(1:4)
+
+      if( present(pout) ) then
+          pout(1)=p(2)  
+          pout(2)=p(3)  
+          pout(3)=p(4) 
+          pout(4)=p(1)  
+      else
+          tmp(1)=p(1)
+          tmp(2)=p(2)
+          tmp(3)=p(3)
+          tmp(4)=p(4)
+
+          p(1)=tmp(2)  
+          p(2)=tmp(3) 
+          p(3)=tmp(4)  
+          p(4)=tmp(1)  
+      endif  
+      
+    end subroutine convert_to_MCFM
+
+
+    
 
 END MODULE
 
